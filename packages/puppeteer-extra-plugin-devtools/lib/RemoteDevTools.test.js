@@ -36,9 +36,9 @@ test('DevToolsLocal: has basic functionality', async t => {
 
 test('DevToolsTunnel: has basic functionality', async t => {
   const instance = new DevToolsTunnel(webSocketDebuggerUrl)
-  instance.tunnel = { url: 'https://faketunnel.com' }
+  instance.tunnelUrl = 'https://faketunnel.com'
   instance.tunnelHost = 'faketunnel.com'
-  t.is(instance.url, instance.tunnel.url)
+  t.is(instance.url, instance.tunnelUrl)
   t.is(
     instance.getUrlForPageId('foobar'),
     'https://faketunnel.com/devtools/inspector.html?wss=faketunnel.com/devtools/page/foobar'

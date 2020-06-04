@@ -18,8 +18,7 @@ test('will create a tunnel', async t => {
 
   await puppeteer.launch({ args: PUPPETEER_ARGS }).then(async browser => {
     const tunnel = await devtools.createTunnel(browser)
-    t.true(tunnel.url.includes('https://devtools-tunnel-'))
-    t.true(tunnel.url.includes('.localtunnel.me'))
+    t.true(tunnel.tunnelUrl.includes('.ngrok.io'))
     browser.close()
   })
   t.true(true)

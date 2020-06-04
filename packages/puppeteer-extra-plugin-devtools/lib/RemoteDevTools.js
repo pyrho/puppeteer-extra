@@ -6,7 +6,7 @@ const ow = require('ow')
 const got = require('got')
 const http = require('http')
 const httpProxy = require('http-proxy')
-const localtunnel = require('localtunnel')
+const ngrok = require('ngrok')
 
 const httpAuth = require('http-auth')
 const modifyResponse = require('http-proxy-response-rewrite')
@@ -90,7 +90,7 @@ class DevToolsTunnel extends DevToolsCommon {
     super(webSocketDebuggerUrl, opts)
 
     this.server = null
-    this.tunnel = {}
+    this.tunnelUrl = null
     this.tunnelHost = null
 
     this.opts = Object.assign(this.defaults, opts)
@@ -105,7 +105,7 @@ class DevToolsTunnel extends DevToolsCommon {
   }
 
   get url() {
-    return this.tunnel.url
+    return this.tunnelUrl
   }
 
   getUrlForPageId(pageId) {
@@ -113,8 +113,7 @@ class DevToolsTunnel extends DevToolsCommon {
   }
 
   async create() {
-    const subdomain =
-      this.opts.subdomain || this._generateSubdomain(this.opts.prefix)
+    const subdomain = this.opts.subdomain
     const basicAuth = this.opts.auth.user
       ? this._createBasicAuth(this.opts.auth.user, this.opts.auth.pass)
       : null
@@ -122,22 +121,26 @@ class DevToolsTunnel extends DevToolsCommon {
 
     this.proxyServer = this._createProxyServer(this.wsHost, this.wsPort)
     this.server = await this._createServer(serverPort, basicAuth)
-    this.tunnel = await this._createTunnel(this.wsHost, serverPort, subdomain)
-    this.tunnelHost = urlParse(this.tunnel.url).hostname
+    this.tunnelUrl = await this._createTunnel(
+      this.wsHost,
+      serverPort,
+      subdomain
+    )
+    this.tunnelHost = urlParse(this.tunnelUrl).hostname
 
     debug(
       'tunnel created.',
       `
       local:  http://${this.wsHost}:${this.wsPort}
       proxy:  http://localhost:${serverPort}
-      tunnel: ${this.tunnel.url}
+      tunnel: ${this.tunnelUrl}
     `
     )
     return this
   }
 
   close() {
-    this.tunnel.close()
+    ngrok.disconnect(this.tunnelUrl)
     this.server.close()
     this.proxyServer.close()
     debug('all closed')
@@ -242,23 +245,18 @@ class DevToolsTunnel extends DevToolsCommon {
   }
 
   async _createTunnel(host, port, subdomain = null) {
-    return new Promise((resolve, reject) => {
-      const tunnel = localtunnel(
-        port,
-        { local_host: host, subdomain },
-        (err, tunnel) => {
-          if (err) {
-            return reject(err)
-          }
-          debug('tunnel:created', tunnel.url)
-          return resolve(tunnel)
+    const tunnelUrl = await ngrok.connect({
+      addr: port,
+      host_header: host,
+      onStatusChange: status => {
+        if (status === 'closed') {
+          debug('tunnel:close')
         }
-      )
-      tunnel.on('close', () => {
-        // todo: add keep-alive?
-        debug('tunnel:close')
-      })
+      }
     })
+
+    debug('tunnel:created', tunnelUrl)
+    return tunnelUrl
   }
 }
 

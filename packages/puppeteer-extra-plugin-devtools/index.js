@@ -61,7 +61,7 @@ class Plugin extends PuppeteerExtraPlugin {
    * Supports multiple browser instances (will create a new tunnel for each).
    *
    * @param  {Puppeteer.Browser} browser - The browser to create the tunnel for (there can be multiple)
-   * @return {Tunnel} The {@link Tunnel} instance
+   * @return {Promise<Tunnel>} The {@link Tunnel} instance
    *
    * @example
    * const puppeteer = require('puppeteer-extra')
