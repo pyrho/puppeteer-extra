@@ -6,7 +6,7 @@ const ow = require('ow')
 const got = require('got')
 const http = require('http')
 const httpProxy = require('http-proxy')
-const localtunnel = require('localtunnel')
+const ngrok = require('ngrok')
 
 const httpAuth = require('http-auth')
 const modifyResponse = require('http-proxy-response-rewrite')
@@ -90,7 +90,7 @@ class DevToolsTunnel extends DevToolsCommon {
     super(webSocketDebuggerUrl, opts)
 
     this.server = null
-    this.tunnel = {}
+    this.tunnelUrl = null
     this.tunnelHost = null
 
     this.opts = Object.assign(this.defaults, opts)
@@ -106,7 +106,7 @@ class DevToolsTunnel extends DevToolsCommon {
   }
 
   get url() {
-    return this.tunnel.url
+    return this.tunnelUrl
   }
 
   getUrlForPageId(pageId) {
@@ -123,28 +123,28 @@ class DevToolsTunnel extends DevToolsCommon {
 
     this.proxyServer = this._createProxyServer(this.wsHost, this.wsPort)
     this.server = await this._createServer(serverPort, basicAuth)
-    this.tunnel = await this._createTunnel({
-      local_host: this.wsHost,
+    this.tunnelUrl = await this._createTunnel({
+      host_header: this.wsHost,
       port: serverPort,
       subdomain,
       ...this.opts.localtunnel
     })
 
-    this.tunnelHost = urlParse(this.tunnel.url).hostname
+    this.tunnelHost = urlParse(this.tunnelUrl).hostname
 
     debug(
       'tunnel created.',
       `
       local:  http://${this.wsHost}:${this.wsPort}
       proxy:  http://localhost:${serverPort}
-      tunnel: ${this.tunnel.url}
+      tunnel: ${this.tunnelUrl}
     `
     )
     return this
   }
 
   close() {
-    this.tunnel.close()
+    ngrok.disconnect(this.tunnelUrl)
     this.server.close()
     this.proxyServer.close()
     debug('all closed')
@@ -249,15 +249,14 @@ class DevToolsTunnel extends DevToolsCommon {
   }
 
   async _createTunnel(options) {
-    const tunnel = await localtunnel(options)
-
-    tunnel.on('close', () => {
-      // todo: add keep-alive?
-      debug('tunnel:close')
+    // const tunnel = await localtunnel(options)
+    const tunnelUrl = await ngrok.connect({
+      addr: options.port,
+      host_header: options.host_header
     })
 
-    debug('tunnel:created', tunnel.url)
-    return tunnel
+    debug('tunnel:created', tunnelUrl)
+    return tunnelUrl
   }
 }
 
